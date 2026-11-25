@@ -23,35 +23,46 @@ jobs:
           mkdir -p source
           unzip -o *.zip -d source
 
+      - name: Fix Java JVM target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("source")
+
+          for p in root.rglob("*"):
+              if p.name not in ("build.gradle", "build.gradle.kts"):
+                  continue
+
+              s = p.read_text()
+              old = s
+
+              s = s.replace(
+                  "JavaVersion.VERSION_1_8",
+                  "JavaVersion.VERSION_17"
+              )
+
+              s = re.sub(
+                  r'(?m)(sourceCompatibility|targetCompatibility)(\s*=\s*|\s+)(["\']?)1\.8\3',
+                  r'\1\2JavaVersion.VERSION_17',
+                  s
+              )
+
+              if s != old:
+                  p.write_text(s)
+                  print("Fixed:", p)
+
+          PY
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Configure JVM targets
-        run: |
-          cat > /tmp/jvm17.init.gradle <<'EOF'
-          allprojects {
-              afterEvaluate {
-                  tasks.withType(
-                      org.gradle.api.tasks.compile.JavaCompile
-                  ).configureEach {
-                      sourceCompatibility = '17'
-                      targetCompatibility = '17'
-                  }
-
-                  tasks.configureEach { task ->
-                      if (task.class.name.contains('KotlinCompile')) {
-                          task.kotlinOptions.jvmTarget = '17'
-                      }
-                  }
-              }
-          }
-          EOF
-
       - name: Build APK
         run: |
           cd source/PlatoPoolAimAssistant
-          gradle -I /tmp/jvm17.init.gradle assembleDebug
+          gradle assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
