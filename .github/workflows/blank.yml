@@ -1,3 +1,4 @@
+
 name: Build Plato APK
 
 on:
@@ -8,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -18,19 +20,41 @@ jobs:
 
       - name: Extract project
         run: |
-          mkdir source
+          mkdir -p source
           unzip -o *.zip -d source
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
+      - name: Configure JVM targets
+        run: |
+          cat > /tmp/jvm17.init.gradle <<'EOF'
+          allprojects {
+              afterEvaluate {
+                  tasks.withType(
+                      org.gradle.api.tasks.compile.JavaCompile
+                  ).configureEach {
+                      sourceCompatibility = '17'
+                      targetCompatibility = '17'
+                  }
+
+                  tasks.configureEach { task ->
+                      if (task.class.name.contains('KotlinCompile')) {
+                          task.kotlinOptions.jvmTarget = '17'
+                      }
+                  }
+              }
+          }
+          EOF
+
       - name: Build APK
         run: |
           cd source/PlatoPoolAimAssistant
-          gradle assembleDebug
+          gradle -I /tmp/jvm17.init.gradle assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
           name: PlatoPoolAimAssistant-APK
           path: source/PlatoPoolAimAssistant/app/build/outputs/apk/debug/app-debug.apk
+          
