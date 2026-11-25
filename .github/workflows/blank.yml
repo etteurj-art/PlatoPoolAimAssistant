@@ -23,37 +23,36 @@ jobs:
           mkdir -p source
           unzip -o *.zip -d source
 
-      - name: Fix Java JVM target
+      - name: Force Java and Kotlin 17
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
+          cat > source/PlatoPoolAimAssistant/app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
 
-          root = Path("source")
+          android {
+              namespace = "com.example.platoaim"
+              compileSdk = 35
 
-          for p in root.rglob("*"):
-              if p.name not in ("build.gradle", "build.gradle.kts"):
-                  continue
+              defaultConfig {
+                  applicationId = "com.example.platoaim"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1.0"
+              }
 
-              s = p.read_text()
-              old = s
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
 
-              s = s.replace(
-                  "JavaVersion.VERSION_1_8",
-                  "JavaVersion.VERSION_17"
-              )
-
-              s = re.sub(
-                  r'(?m)(sourceCompatibility|targetCompatibility)(\s*=\s*|\s+)(["\']?)1\.8\3',
-                  r'\1\2JavaVersion.VERSION_17',
-                  s
-              )
-
-              if s != old:
-                  p.write_text(s)
-                  print("Fixed:", p)
-
-          PY
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
 
       - uses: gradle/actions/setup-gradle@v4
         with:
